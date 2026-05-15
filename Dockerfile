@@ -49,8 +49,6 @@ COPY --from=deps /app /app
 COPY . .
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/plugin-sdk build
-RUN pnpm --filter @paperclipai/server build
-RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 FROM base AS production
 ARG USER_UID=1000
@@ -59,10 +57,11 @@ WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
   && apt-get update \
-  && apt-get install -y --no-install-recommends openssh-client jq \
+  && apt-get install -y --no-install-recommends openssh-client jq iptables \
+  && curl -fsSL https://tailscale.com/install.sh | sh \
   && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /paperclip \
-  && chown node:node /paperclip
+  && mkdir -p /paperclip /var/run/tailscale /var/lib/tailscale \
+  && chown node:node /paperclip /var/run/tailscale /var/lib/tailscale
 
 COPY scripts/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -81,8 +80,7 @@ ENV NODE_ENV=production \
   PAPERCLIP_DEPLOYMENT_EXPOSURE=private \
   OPENCODE_ALLOW_ALL_MODELS=true
 
-VOLUME ["/paperclip"]
 EXPOSE 3100
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/src/index.ts"]
