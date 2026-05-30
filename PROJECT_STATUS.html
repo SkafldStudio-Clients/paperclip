@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paperclip — Project Status</title>
+<style>
+:root {
+  --bg: #0f1117; --bg-card: #1a1d27; --bg-elevated: #252836;
+  --text: #e2e8f0; --text-muted: #94a3b8; --border: #2d3348;
+  --accent: #6366f1;
+  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --gray: #6b7280;
+  --orange: #f97316; --blue: #3b82f6;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc; --bg-card: #ffffff; --bg-elevated: #f1f5f9;
+    --text: #1e293b; --text-muted: #64748b; --border: #e2e8f0;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Layout */
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+nav.sidebar { position: fixed; left: 0; top: 0; width: 220px; height: 100vh; background: var(--bg-card); border-right: 1px solid var(--border); padding: 1.5rem 1rem; overflow-y: auto; z-index: 10; }
+nav.sidebar h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem; }
+nav.sidebar a { display: block; padding: 0.3rem 0.5rem; border-radius: 4px; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 2px; }
+nav.sidebar a:hover, nav.sidebar a.active { background: var(--bg-elevated); color: var(--text); text-decoration: none; }
+main { margin-left: 220px; }
+@media (max-width: 768px) { nav.sidebar { display: none; } main { margin-left: 0; } }
+
+/* Components */
+.badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+.badge-green { background: color-mix(in srgb, var(--green) 20%, transparent); color: var(--green); }
+.badge-yellow { background: color-mix(in srgb, var(--yellow) 20%, transparent); color: var(--yellow); }
+.badge-red { background: color-mix(in srgb, var(--red) 20%, transparent); color: var(--red); }
+.badge-gray { background: color-mix(in srgb, var(--gray) 20%, transparent); color: var(--gray); }
+.badge-orange { background: color-mix(in srgb, var(--orange) 20%, transparent); color: var(--orange); }
+.badge-blue { background: color-mix(in srgb, var(--blue) 20%, transparent); color: var(--blue); }
+.badge-large { font-size: 1.5rem; padding: 0.4rem 1.2rem; }
+
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
+.stats-row { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+.stat-card { flex: 1; min-width: 140px; text-align: center; }
+.stat-card .value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+.stat-card .label { font-size: 0.8rem; color: var(--text-muted); }
+
+h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+h2 { font-size: 1.4rem; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 1rem 0; }
+th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+tr:hover { background: var(--bg-elevated); }
+
+details { margin: 0.75rem 0; }
+summary { cursor: pointer; font-weight: 600; padding: 0.5rem; border-radius: 4px; }
+summary:hover { background: var(--bg-elevated); }
+details[open] summary { margin-bottom: 0.5rem; }
+
+.header-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+.section { scroll-margin-top: 1rem; }
+
+@media print {
+  nav.sidebar { display: none; }
+  main { margin-left: 0; }
+  details { open: true; }
+  details > * { display: block !important; }
+  .badge { border: 1px solid currentColor; }
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h3>Paperclip Status</h3>
+  <a href="#header">Overview</a>
+  <a href="#health">Health Scorecard</a>
+  <a href="#classification">Classification</a>
+  <a href="#services">Services & Config</a>
+  <a href="#roadmap">Roadmap</a>
+  <a href="#issues">Open Issues</a>
+  <a href="#changelog">Changelog</a>
+  <a href="#dependencies">Dependencies</a>
+  <a href="#recommendations">Recommendations</a>
+</nav>
+
+<main>
+<div class="container">
+
+<!-- HEADER -->
+<section id="header" class="section">
+  <h1>Paperclip — Project Status</h1>
+  <div class="header-meta">
+    Generated: 2026-05-13 &nbsp;|&nbsp; Commit: <code>f4bed4a7</code> &nbsp;|&nbsp; Branch: <code>master</code> &nbsp;|&nbsp; Release: <code>v2026.513.0</code>
+  </div>
+  <div style="margin-bottom: 1.5rem;">
+    <span class="badge badge-yellow badge-large">86 / 100</span>
+    <span style="margin-left: 0.75rem; color: var(--text-muted);">Needs Attention — no linter configured</span>
+  </div>
+  <div class="stats-row">
+    <div class="card stat-card"><div class="value">1,644</div><div class="label">Source Files</div></div>
+    <div class="card stat-card"><div class="value">~491K</div><div class="label">Lines of Code</div></div>
+    <div class="card stat-card"><div class="value">507</div><div class="label">Test Files</div></div>
+    <div class="card stat-card"><div class="value">2,463</div><div class="label">Commits</div></div>
+    <div class="card stat-card"><div class="value">85</div><div class="label">DB Migrations</div></div>
+    <div class="card stat-card"><div class="value">30</div><div class="label">Open Issues</div></div>
+  </div>
+</section>
+
+<!-- HEALTH SCORECARD -->
+<section id="health" class="section">
+  <h2>Health Scorecard</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Check</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Version Control</td><td>Git initialized</td><td><span class="badge badge-green">PASS</span></td><td>2,463 commits</td></tr>
+      <tr><td></td><td>.gitignore exists</td><td><span class="badge badge-green">PASS</span></td><td>Comprehensive</td></tr>
+      <tr><td></td><td>No secrets committed</td><td><span class="badge badge-green">PASS</span></td><td></td></tr>
+      <tr><td></td><td>Clean working tree</td><td><span class="badge badge-green">PASS</span></td><td></td></tr>
+      <tr><td>Testing</td><td>Test files exist</td><td><span class="badge badge-green">PASS</span></td><td>507 test files</td></tr>
+      <tr><td></td><td>Tests configured</td><td><span class="badge badge-green">PASS</span></td><td>Vitest + Playwright</td></tr>
+      <tr><td></td><td>Coverage configured</td><td><span class="badge badge-yellow">WARN</span></td><td>No coverage tool configured</td></tr>
+      <tr><td>CI/CD</td><td>Pipeline exists</td><td><span class="badge badge-green">PASS</span></td><td>6 GitHub Actions workflows</td></tr>
+      <tr><td></td><td>CI passing</td><td><span class="badge badge-green">PASS</span></td><td>Typecheck + test + build</td></tr>
+      <tr><td>Dependencies</td><td>Lock file present</td><td><span class="badge badge-green">PASS</span></td><td>pnpm-lock.yaml</td></tr>
+      <tr><td></td><td>Deps pinned</td><td><span class="badge badge-green">PASS</span></td><td></td></tr>
+      <tr><td>Documentation</td><td>README exists</td><td><span class="badge badge-green">PASS</span></td><td>22KB comprehensive</td></tr>
+      <tr><td></td><td>Contributing guide</td><td><span class="badge badge-green">PASS</span></td><td>CONTRIBUTING.md + AGENTS.md</td></tr>
+      <tr><td>Code Quality</td><td>Linter configured</td><td><span class="badge badge-red">FAIL</span></td><td>No ESLint, Biome, or Prettier</td></tr>
+      <tr><td></td><td>Formatter configured</td><td><span class="badge badge-yellow">WARN</span></td><td>No formatter config</td></tr>
+      <tr><td></td><td>Type checking</td><td><span class="badge badge-green">PASS</span></td><td>TypeScript strict mode</td></tr>
+      <tr><td>Node/TS</td><td>engines field</td><td><span class="badge badge-green">PASS</span></td><td>node >=20, pnpm 9.15.4</td></tr>
+      <tr><td></td><td>node_modules gitignored</td><td><span class="badge badge-green">PASS</span></td><td></td></tr>
+      <tr><td>Docker</td><td>.dockerignore exists</td><td><span class="badge badge-green">PASS</span></td><td></td></tr>
+      <tr><td></td><td>No latest tag</td><td><span class="badge badge-green">PASS</span></td><td>Uses lts-trixie-slim (floating)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- CLASSIFICATION -->
+<section id="classification" class="section">
+  <h2>Project Classification</h2>
+  <div class="card">
+    <table>
+      <tr><td style="width:160px;color:var(--text-muted)">Name</td><td>Paperclip (<code>paperclipai</code>)</td></tr>
+      <tr><td style="color:var(--text-muted)">Type</td><td>pnpm monorepo — 15 workspace packages</td></tr>
+      <tr><td style="color:var(--text-muted)">Platform</td><td>Server + Web UI + CLI</td></tr>
+      <tr><td style="color:var(--text-muted)">Stack</td><td>TypeScript 5.7, Express 5, React 19, Vite 6, Drizzle ORM, PostgreSQL</td></tr>
+      <tr><td style="color:var(--text-muted)">Architecture</td><td>AI agent orchestration control plane — heartbeat execution, pluggable adapters, company-scoped multi-tenancy</td></tr>
+      <tr><td style="color:var(--text-muted)">Versioning</td><td>CalVer (YYYY.MDD.P) — latest: v2026.513.0</td></tr>
+      <tr><td style="color:var(--text-muted)">License</td><td>MIT</td></tr>
+    </table>
+  </div>
+
+  <h3>Workspace Packages</h3>
+  <table>
+    <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>@paperclipai/server</code></td><td>server/</td><td>Express REST API + orchestration engine</td></tr>
+      <tr><td><code>@paperclipai/ui</code></td><td>ui/</td><td>React + Vite board UI</td></tr>
+      <tr><td><code>paperclipai</code></td><td>cli/</td><td>CLI tooling</td></tr>
+      <tr><td><code>@paperclipai/db</code></td><td>packages/db/</td><td>Drizzle ORM schema + 85 migrations</td></tr>
+      <tr><td><code>@paperclipai/shared</code></td><td>packages/shared/</td><td>Shared types, constants, Zod validators</td></tr>
+      <tr><td><code>@paperclipai/adapter-utils</code></td><td>packages/adapter-utils/</td><td>Adapter utilities (process mgmt, SSH, sandbox bridge)</td></tr>
+      <tr><td><code>@paperclipai/mcp-server</code></td><td>packages/mcp-server/</td><td>MCP server (40 tools)</td></tr>
+      <tr><td><code>@paperclipai/plugin-sdk</code></td><td>packages/plugins/sdk/</td><td>Plugin SDK</td></tr>
+      <tr><td>Adapters (9)</td><td>packages/adapters/*</td><td>claude, codex, acpx, cursor, cursor-cloud, gemini, openclaw, opencode, pi</td></tr>
+      <tr><td>Sandbox providers (4)</td><td>packages/plugins/*</td><td>cloudflare, e2b, daytona, exe.dev</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SERVICES -->
+<section id="services" class="section">
+  <h2>Services &amp; Configuration</h2>
+  <h3>Internal Services</h3>
+  <table>
+    <thead><tr><th>Service</th><th>Port</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Paperclip API</td><td>3100</td><td>Express REST API + WebSocket live events</td></tr>
+      <tr><td>Embedded PostgreSQL</td><td>54329</td><td>PGlite for development</td></tr>
+      <tr><td>Vite HMR</td><td>13100</td><td>UI hot module replacement (dev)</td></tr>
+    </tbody>
+  </table>
+  <h3>Environment Variables</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Required</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>DATABASE_URL</code></td><td>No (embedded PG)</td><td>External PostgreSQL connection</td></tr>
+      <tr><td><code>PORT</code></td><td>No (3100)</td><td>Server port</td></tr>
+      <tr><td><code>BETTER_AUTH_SECRET</code></td><td>Yes (auth mode)</td><td>Authentication secret</td></tr>
+      <tr><td><code>SERVE_UI</code></td><td>No (true)</td><td>Serve UI from API server</td></tr>
+      <tr><td><code>ANTHROPIC_API_KEY</code></td><td>For Claude</td><td>Claude adapter</td></tr>
+      <tr><td><code>OPENAI_API_KEY</code></td><td>For Codex</td><td>Codex adapter</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap" class="section">
+  <h2>Roadmap</h2>
+
+  <h3>Completed (9 of 21 items)</h3>
+  <table>
+    <thead><tr><th>Item</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Plugin System</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>OpenClaw agents</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>Company import/export</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>AGENTS.md configurations</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>Skills Manager</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>Scheduled Routines</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>Better Budgeting</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>Agent Reviews &amp; Approvals</td><td><span class="badge badge-green">Done</span></td></tr>
+      <tr><td>Multiple Human Users</td><td><span class="badge badge-green">Done</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Active (2 items)</h3>
+  <table>
+    <thead><tr><th>Item</th><th>Status</th><th>Gap</th></tr></thead>
+    <tbody>
+      <tr><td>Cloud/Sandbox agents</td><td><span class="badge badge-yellow">Active</span></td><td>UI gated behind experimental flag</td></tr>
+      <tr><td>Artifacts &amp; Work Products</td><td><span class="badge badge-yellow">Active</span></td><td>Backend complete, no UI surface</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Upcoming (10 items)</h3>
+  <table>
+    <thead><tr><th>Item</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>CEO Chat</td><td><span class="badge badge-blue">Nice to Have</span></td></tr>
+      <tr><td>Memory / Knowledge</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Enforced Outcomes</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>MAXIMIZER MODE</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Deep Planning</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Work Queues</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Self-Organization</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Automatic Org Learning</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Cloud Deployments</td><td><span class="badge badge-gray">Defer</span></td></tr>
+      <tr><td>Desktop App</td><td><span class="badge badge-gray">Defer</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- OPEN ISSUES -->
+<section id="issues" class="section">
+  <h2>Open Issues (Critical Bugs)</h2>
+
+  <h3>System Stability — Critical Path</h3>
+  <table>
+    <thead><tr><th>#</th><th>Title</th><th>Severity</th><th>Fix Complexity</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5917">#5917</a></td><td>Comments 500 — Date object in postgres.js query</td><td><span class="badge badge-red">Critical</span></td><td>1-line fix</td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5916">#5916</a></td><td>Plugin tools always 502 — registerPluginTools drops dbId</td><td><span class="badge badge-red">Critical</span></td><td>2-line fix</td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5935">#5935</a></td><td>Self-perpetuating wake-loop on agent's own comments</td><td><span class="badge badge-red">High</span></td><td>Medium</td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5945">#5945</a></td><td>setUserCompanyAccess skips permission grants</td><td><span class="badge badge-red">High</span></td><td>Small</td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5950">#5950</a></td><td>Embedded PostgreSQL permission denied on macOS</td><td><span class="badge badge-red">High</span></td><td>Medium</td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5956">#5956</a></td><td>API returns HTML 5xx instead of JSON error envelope</td><td><span class="badge badge-red">High</span></td><td>Medium</td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5906">#5906</a></td><td>Orchestration/recovery loops</td><td><span class="badge badge-orange">Medium</span></td><td>Complex</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Plugin System</h3>
+  <table>
+    <thead><tr><th>#</th><th>Title</th><th>Severity</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5879">#5879</a></td><td>usePluginStream returns 501 — route not implemented</td><td><span class="badge badge-orange">Medium</span></td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5878">#5878</a></td><td>LLM Wiki plugin install fails — migration SQL validator</td><td><span class="badge badge-orange">Medium</span></td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5843">#5843</a></td><td>Plugin UI asset route 500 on pluginKey lookup</td><td><span class="badge badge-orange">Medium</span></td></tr>
+      <tr><td><a href="https://github.com/paperclipai/paperclip/issues/5933">#5933</a></td><td>PAPERCLIP_PROJECT_ID sometimes empty</td><td><span class="badge badge-yellow">Low</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- CHANGELOG -->
+<section id="changelog" class="section">
+  <h2>Changelog</h2>
+
+  <details open>
+    <summary>v2026.513.0 — 2026-05-13 (latest)</summary>
+    <div class="card">
+      <p><strong>Features:</strong> Blocked inbox view (#5603), source-scoped recovery actions (#5599), local plugin dev workflow (#5821), ordered sub-issue navigation (#5938)</p>
+      <p><strong>Fixes:</strong> Comment date binding regression (#5919), remote sandbox workspace resumes (#5922)</p>
+      <p><strong>Migrations:</strong> 1 (0084_issue_recovery_actions)</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>v2026.512.0 — 2026-05-12 (large release)</summary>
+    <div class="card">
+      <p><strong>Features (9 major):</strong> Planning mode, full-text search, routine revisions, run handoff, expanded plugin surface, LLM Wiki, secrets vaults, cursor-cloud adapter, ACPX adapter</p>
+      <p><strong>Fixes:</strong> 14+ including Codex auth, Gemini format, env leaks, runtime races</p>
+      <p><strong>Migrations:</strong> 9 (0075–0083)</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>v2026.428.0 — 2026-04-28</summary>
+    <div class="card">
+      <p><strong>Features:</strong> Agent pause/resume, productivity review, virtualized threads</p>
+      <p><strong>Migrations:</strong> 4 (0071–0074)</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>v2026.427.0 — 2026-04-27 (largest release)</summary>
+    <div class="card">
+      <p><strong>Features:</strong> Multi-user, thread interactions, run liveness, sub-issues, subtree pause, issue references, BETA sandbox environments</p>
+      <p><strong>Security:</strong> API route authorization hardening</p>
+      <p><strong>Migrations:</strong> 14 (0057–0070)</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>v2026.416.0 — 2026-04-16 (foundation)</summary>
+    <div class="card">
+      <p><strong>Features:</strong> Issue chat thread, execution policies, blocker deps, MCP server, issue search</p>
+      <p><strong>Security:</strong> GHSA-68qg-g8mg-6pr7 — authorization hardening, JWT fix</p>
+      <p><strong>Migrations:</strong> 8 (0049–0056)</p>
+    </div>
+  </details>
+</section>
+
+<!-- DEPENDENCIES -->
+<section id="dependencies" class="section">
+  <h2>Dependencies</h2>
+  <table>
+    <thead><tr><th>Dependency</th><th>Version</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>express</td><td>^5.1.0</td><td>HTTP framework</td></tr>
+      <tr><td>drizzle-orm</td><td>^0.45.2</td><td>Database ORM</td></tr>
+      <tr><td>better-auth</td><td>1.4.18</td><td>Authentication</td></tr>
+      <tr><td>react</td><td>^19.0.0</td><td>UI framework</td></tr>
+      <tr><td>@tanstack/react-query</td><td>^5.90.21</td><td>Data fetching</td></tr>
+      <tr><td>@assistant-ui/react</td><td>0.12.23</td><td>Chat thread</td></tr>
+      <tr><td>vite</td><td>^6.1.0</td><td>Build tool</td></tr>
+      <tr><td>tailwindcss</td><td>^4.0.7</td><td>CSS framework</td></tr>
+      <tr><td>vitest</td><td>^3.0.5</td><td>Test framework</td></tr>
+      <tr><td>@playwright/test</td><td>^1.58.2</td><td>E2E testing</td></tr>
+      <tr><td>typescript</td><td>^5.7.3</td><td>Type system</td></tr>
+      <tr><td>zod</td><td>(latest)</td><td>Schema validation</td></tr>
+      <tr><td>pino</td><td>^9.6.0</td><td>Logging</td></tr>
+      <tr><td>ws</td><td>(latest)</td><td>WebSocket</td></tr>
+      <tr><td>esbuild</td><td>^0.27.3</td><td>CLI bundler</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:0.5rem;color:var(--text-muted);font-size:0.85rem">Lock file: <code>pnpm-lock.yaml</code> present. All deps use version ranges (^). Package manager: pnpm 9.15.4 (pinned).</p>
+</section>
+
+<!-- RECOMMENDATIONS -->
+<section id="recommendations" class="section">
+  <h2>Recommendations</h2>
+
+  <div class="card" style="border-left: 3px solid var(--red);">
+    <h3 style="margin-top:0">1. Fix Critical Regressions (6 bugs)</h3>
+    <p>Issues #5917, #5916, #5935, #5945, #5950, #5956 are all regressions or blockers in the current release. Three have trivial fixes (1-2 lines). Fix these before any new feature work.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--red);">
+    <h3 style="margin-top:0">2. Add Linter Configuration</h3>
+    <p>No ESLint, Biome, or Prettier in a ~491K LoC TypeScript codebase. This is the single biggest structural gap. Recommend Biome for combined linting + formatting with minimal config.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--yellow);">
+    <h3 style="margin-top:0">3. Configure Test Coverage</h3>
+    <p>507 test files exist but no coverage reporting. Add Vitest coverage with <code>@vitest/coverage-v8</code> to identify undertested areas.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--yellow);">
+    <h3 style="margin-top:0">4. Stabilize Plugin Ecosystem</h3>
+    <p>4 plugin bugs (#5916, #5879, #5878, #5843) make the plugin system effectively unusable. Fix these to unblock plugin adoption.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--gray);">
+    <h3 style="margin-top:0">5. Ship Work Products UI</h3>
+    <p>Backend is complete. Adding a UI page would close the "Artifacts &amp; Work Products" roadmap item — the easiest roadmap win available.</p>
+  </div>
+
+  <div class="card" style="border-left: 3px solid var(--gray);">
+    <h3 style="margin-top:0">6. Pin Docker Base Image</h3>
+    <p><code>node:lts-trixie-slim</code> is floating. Pin to a specific Node version for reproducible builds.</p>
+  </div>
+</section>
+
+</div>
+</main>
+
+<script>
+// Active TOC highlighting
+const links = document.querySelectorAll('nav.sidebar a');
+const sections = document.querySelectorAll('.section');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`nav.sidebar a[href="#${entry.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

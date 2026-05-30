@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-05-14T00:00:00Z",
+  "commit": "f4bed4a7",
+  "branch": "master",
+  "phases_run": ["1", "1b", "2", "3", "4", "5"],
+  "file_count": 1644,
+  "test_count": 507,
+  "health_score": 86,
+  "release_baseline": "v2026.513.0",
+  "total_loc": 490727,
+  "total_commits": 2463,
+  "migration_count": 85,
+  "markdown_files": 249,
+  "open_issues": 30,
+  "tracked_docs": [
+    "README.md",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "adapter-plugin.md",
+    "doc/SPEC.md",
+    "doc/PRODUCT.md",
+    "doc/DEVELOPING.md",
+    "doc/RELEASING.md",
+    "doc/CLI.md",
+    "doc/TASKS.md",
+    "doc/DEPLOYMENT-MODES.md"
+  ]
+}
