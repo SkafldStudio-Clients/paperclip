@@ -88,9 +88,9 @@ function boardRoutes() {
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
       <Route path="agents/all" element={<Agents />} />
-      <Route path="agents/active" element={<Agents />} />
-      <Route path="agents/paused" element={<Agents />} />
-      <Route path="agents/error" element={<Agents />} />
+      <Route path="agents/active" element={<Navigate to="/agents/all" replace />} />
+      <Route path="agents/paused" element={<Navigate to="/agents/all" replace />} />
+      <Route path="agents/error" element={<Navigate to="/agents/all" replace />} />
       <Route path="agents/new" element={<NewAgent />} />
       <Route path="agents/:agentId" element={<AgentDetail />} />
       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />

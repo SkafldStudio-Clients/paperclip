@@ -7,7 +7,6 @@ import { createToolDefinitions } from "./tools.js";
 export { PaperclipApiClient } from "./client.js";
 export { createToolDefinitions } from "./tools.js";
 export type { PaperclipMcpConfig } from "./config.js";
-export type { ToolDefinition } from "./tools.js";
 
 export function createPaperclipMcpServer(config: PaperclipMcpConfig = readConfigFromEnv()) {
   const server = new McpServer({
