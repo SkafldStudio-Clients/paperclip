@@ -60,4 +60,12 @@ if [ "$changed" = "1" ]; then
     chown -R node:node /paperclip
 fi
 
+# Ensure the data dir is writable by node. A freshly-mounted persistent volume
+# (e.g. Railway volume at /paperclip) is owned by root, which would make the
+# server crash when it drops to the node user. Chown it when ownership is wrong.
+if [ "$(stat -c %u /paperclip 2>/dev/null || echo 0)" != "$PUID" ]; then
+    echo "Fixing /paperclip ownership for node ($PUID:$PGID)"
+    chown -R node:node /paperclip
+fi
+
 exec gosu node "$@"
