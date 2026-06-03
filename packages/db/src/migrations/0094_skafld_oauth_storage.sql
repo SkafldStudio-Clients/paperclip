@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS "oauth_auth_codes" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL
 );--> statement-breakpoint
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'oauth_auth_codes_user_id_auth_users_id_fk') THEN
-    ALTER TABLE "oauth_auth_codes" ADD CONSTRAINT "oauth_auth_codes_user_id_auth_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."auth_users"("id") ON DELETE cascade ON UPDATE no action;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'oauth_auth_codes_user_id_user_id_fk') THEN
+    ALTER TABLE "oauth_auth_codes" ADD CONSTRAINT "oauth_auth_codes_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
   END IF;
 END $$;--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "oauth_clients_client_id_unique_idx" ON "oauth_clients" USING btree ("client_id");--> statement-breakpoint
