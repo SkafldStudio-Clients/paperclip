@@ -1,6 +1,8 @@
 import { definePlugin, runWorker } from "@paperclipai/plugin-sdk";
+import { stat } from "node:fs/promises";
 
 import { AppleDbReader } from "./apple-db/reader.js";
+import { getDefaultAppleDir } from "./apple-db/finder.js";
 import {
   classifyFailedTools,
   summarizeFailureCounts,
@@ -63,6 +65,28 @@ function getLimitFromParams(params: unknown, fallback: number): number {
 
 const plugin = definePlugin({
   async setup(ctx) {
+    // Probe the Apple Claude Code snapshot directory once at startup so
+    // operators see immediately whether the plugin will produce data on this
+    // host. The plugin still registers its handlers either way — handlers
+    // return empty payloads when the directory is missing, and the UI
+    // surfaces a "not configured" state — but on hosted deployments
+    // (Railway/Docker) the directory will never exist and operators
+    // should know they can disable this plugin.
+    const appleDir = getDefaultAppleDir();
+    try {
+      await stat(appleDir);
+      ctx.logger.info("Apple Claude Code snapshot directory found", {
+        path: appleDir,
+      });
+    } catch {
+      ctx.logger.info(
+        "Apple Claude Code snapshot directory not found — plugin will run idle. " +
+          "This plugin only produces data on hosts running Apple Claude Code locally; " +
+          "consider disabling it on Railway/Docker deployments.",
+        { path: appleDir },
+      );
+    }
+
     const reader = new AppleDbReader();
 
     /**

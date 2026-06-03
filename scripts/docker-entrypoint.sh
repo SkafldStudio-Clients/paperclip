@@ -29,9 +29,21 @@ if [ -n "$TAILSCALE_AUTHKEY" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Non-root fast path (Railway, rootless containers)
+# Non-root fast path (Railway, rootless containers).
+#
+# Railway runs the container as a non-root UID and may mount a persistent
+# volume at /paperclip that is owned by root. We can't chown without root, so
+# probe writability and fail loudly if the volume isn't usable — silently
+# falling through would crash later in a confusing place.
 # ---------------------------------------------------------------------------
 if [ "$(id -u)" -ne 0 ]; then
+    if [ ! -w /paperclip ]; then
+        echo "FATAL: /paperclip is not writable as $(id -u):$(id -g)." >&2
+        echo "If this is a freshly-mounted Railway volume, run a one-time" >&2
+        echo "root chown (e.g. via a privileged sidecar or by booting once" >&2
+        echo "as root) before resuming non-root operation." >&2
+        exit 1
+    fi
     exec "$@"
 fi
 
@@ -41,29 +53,22 @@ fi
 PUID=${USER_UID:-1000}
 PGID=${USER_GID:-1000}
 
-changed=0
-
 if [ "$(id -u node)" -ne "$PUID" ]; then
     echo "Updating node UID to $PUID"
     usermod -o -u "$PUID" node
-    changed=1
 fi
 
 if [ "$(id -g node)" -ne "$PGID" ]; then
     echo "Updating node GID to $PGID"
     groupmod -o -g "$PGID" node
     usermod -g "$PGID" node
-    changed=1
 fi
 
-if [ "$changed" = "1" ]; then
-    chown -R node:node /paperclip
-fi
-
-# Ensure the data dir is writable by node. A freshly-mounted persistent volume
-# (e.g. Railway volume at /paperclip) is owned by root, which would make the
-# server crash when it drops to the node user. Chown it when ownership is wrong.
-if [ "$(stat -c %u /paperclip 2>/dev/null || echo 0)" != "$PUID" ]; then
+# Always reconcile /paperclip ownership before dropping privileges. A freshly
+# mounted persistent volume is owned by root, and the UID/GID may have changed
+# since the previous run.
+if [ "$(stat -c %u /paperclip 2>/dev/null || echo 0)" != "$PUID" ] \
+   || [ "$(stat -c %g /paperclip 2>/dev/null || echo 0)" != "$PGID" ]; then
     echo "Fixing /paperclip ownership for node ($PUID:$PGID)"
     chown -R node:node /paperclip
 fi

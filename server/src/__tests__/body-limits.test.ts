@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_JSON_BODY_LIMIT,
+  OAUTH_BODY_LIMIT,
   PORTABLE_JSON_BODY_LIMIT,
   PORTABLE_JSON_BODY_LIMIT_BYTES,
 } from "../http/body-limits.js";
@@ -15,5 +16,9 @@ describe("HTTP body limits", () => {
     expect(PORTABLE_JSON_BODY_LIMIT).toBe("64mb");
     expect(PORTABLE_JSON_BODY_LIMIT_BYTES).toBe(64 * 1024 * 1024);
     expect(PORTABLE_JSON_BODY_LIMIT_BYTES).toBeGreaterThan(10 * 1024 * 1024);
+  });
+
+  it("clamps the unauthenticated OAuth surface tightly", () => {
+    expect(OAUTH_BODY_LIMIT).toBe("16kb");
   });
 });

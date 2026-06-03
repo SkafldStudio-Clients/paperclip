@@ -161,6 +161,46 @@ const apiRequestSchema = z.object({
   jsonBody: z.string().optional(),
 });
 
+/**
+ * Allowlist for `paperclipApiRequest`. The catch-all tool exists for new
+ * endpoints that aren't yet wrapped in a typed tool — but the MCP transport
+ * is reachable from claude.ai over the public internet via OAuth, so we can't
+ * let an attacker who phishes a user's auth code DELETE companies or revoke
+ * keys through this tool. Read-only `GET` is allowed broadly; mutations are
+ * confined to the same paths the typed tools already cover.
+ */
+const API_REQUEST_GET_PREFIXES: readonly string[] = [
+  "/companies",
+  "/issues",
+  "/agents",
+  "/projects",
+  "/goals",
+  "/approvals",
+  "/documents",
+  "/routines",
+  "/me",
+  "/instance/health",
+];
+
+const API_REQUEST_MUTATING_PREFIXES: readonly string[] = [
+  "/companies",
+  "/issues",
+  "/agents",
+  "/projects",
+  "/goals",
+  "/approvals",
+  "/documents",
+  "/routines",
+];
+
+function isPathAllowed(method: string, path: string): boolean {
+  const prefixes =
+    method === "GET" ? API_REQUEST_GET_PREFIXES : API_REQUEST_MUTATING_PREFIXES;
+  return prefixes.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
 const workspaceRuntimeControlTargetSchema = z.object({
   workspaceCommandId: z.string().min(1).optional().nullable(),
   runtimeServiceId: z.string().uuid().optional().nullable(),
@@ -658,11 +698,17 @@ export function createToolDefinitions(client: PaperclipApiClient): ToolDefinitio
     ),
     makeTool(
       "paperclipApiRequest",
-      "Make a JSON request to an existing Paperclip /api endpoint for unsupported operations",
+      "Make a JSON request to an existing Paperclip /api endpoint for unsupported operations. DELETE is disallowed; non-GET requests are restricted to standard resource paths (companies, issues, agents, projects, goals, approvals, documents, routines).",
       apiRequestSchema,
       async ({ method, path, jsonBody }) => {
         if (!path.startsWith("/") || path.includes("..")) {
           throw new Error("path must start with / and be relative to /api, and must not contain '..'");
+        }
+        if (method === "DELETE") {
+          throw new Error("DELETE is not allowed via paperclipApiRequest — use a typed tool that intentionally exposes the destructive operation");
+        }
+        if (!isPathAllowed(method, path)) {
+          throw new Error(`${method} ${path} is not in the paperclipApiRequest allowlist — use a typed tool or request the endpoint be wrapped`);
         }
         return client.requestJson(method, path, {
           body: parseOptionalJson(jsonBody),

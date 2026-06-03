@@ -15,7 +15,7 @@ const manifest: PaperclipPluginManifestV1 = {
   version: PLUGIN_VERSION,
   displayName: PLUGIN_DISPLAY_NAME,
   description:
-    "Read-only insights for the Apple Claude Code proxy: quota / rate-limit status, failed tool calls, blocked network requests, and MCP server health. Attributes activity to the current company's agents via session_id when possible.",
+    "Read-only insights for the Apple Claude Code proxy: quota / rate-limit status, failed tool calls, blocked network requests, and MCP server health. Reads SQLite snapshots written by Apple Claude Code at ~/.claude/apple/, so the plugin only produces useful data when the Paperclip host is running on the same machine as Apple Claude Code (i.e. local developer setups, not Railway/Docker deployments). When the snapshot directory is missing the plugin runs idle and the UI surfaces a 'not configured' state.",
   author: "Paperclip (fork)",
   categories: ["ui"],
   capabilities: [

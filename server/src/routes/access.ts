@@ -3617,6 +3617,26 @@ export function accessRoutes(
         if (approved) {
           Object.assign(created, approved);
         }
+        // Audit trail: the auto-approve path skips human admin review, so log
+        // it explicitly under a dedicated action name. Operators can alert on
+        // an unexpected spike without having to disambiguate from manual
+        // approvals.
+        await logActivity(db, {
+          companyId,
+          actorType: "user",
+          actorId: userId,
+          action: "join_request.auto_approved",
+          entityType: "join_request",
+          entityId: created.id,
+          details: {
+            source: "human_invite_accept",
+            inviteId: invite.id,
+            membershipRole,
+            requestingUserId: userId,
+            requestEmail: created.requestEmailSnapshot ?? null,
+            replayedExistingInvite: inviteAlreadyAccepted,
+          },
+        });
       }
 
       if (

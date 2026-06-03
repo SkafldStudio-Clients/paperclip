@@ -1,14 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import express, { Router, type Request, type Response } from "express";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { PaperclipApiClient, createToolDefinitions } from "@paperclipai/mcp-server";
 import type { PaperclipMcpConfig } from "@paperclipai/mcp-server";
 import type { Db } from "@paperclipai/db";
-import { boardApiKeys } from "@paperclipai/db";
+import { boardApiKeys, oauthAuthCodes, oauthClients } from "@paperclipai/db";
 import { logger } from "../middleware/logger.js";
 import { boardApiKeyExpiresAt, createBoardApiToken, hashBearerToken } from "../services/board-auth.js";
+import { OAUTH_BODY_LIMIT } from "../http/body-limits.js";
 
 // ─── MCP Streamable HTTP route ──────────────────────────────────────────────
 
@@ -61,36 +62,43 @@ export function mcpRoutes(opts: { serverPort: number }) {
 
 // ─── OAuth 2.0 Authorization Code + PKCE (for claude.ai connectors) ─────────
 
-interface PendingAuthCode {
-  userId: string;
-  codeChallenge: string;
-  codeChallengeMethod: string;
-  redirectUri: string;
-  expiresAt: number;
-}
-
-/** In-memory store for pending auth codes. Short-lived (10 min), one-time use. */
-const pendingCodes = new Map<string, PendingAuthCode>();
-
-const AUTH_CODE_TTL_MS = 10 * 60 * 1000;
-const CODE_CLEANUP_INTERVAL_MS = 60 * 1000;
-
-// Periodic cleanup of expired codes
-setInterval(() => {
-  const now = Date.now();
-  for (const [code, entry] of pendingCodes) {
-    if (entry.expiresAt <= now) pendingCodes.delete(code);
-  }
-}, CODE_CLEANUP_INTERVAL_MS).unref();
+/**
+ * Authorization codes are short-lived: claude.ai exchanges them within
+ * seconds of issuance. RFC 6749 § 4.1.2 recommends ≤ 10 minutes; we use 2.
+ */
+const AUTH_CODE_TTL_MS = 2 * 60 * 1000;
 
 function generateAuthCode(): string {
   return randomBytes(32).toString("hex");
+}
+
+function hashAuthCode(code: string): string {
+  return createHash("sha256").update(code).digest("hex");
 }
 
 function verifyPkce(codeVerifier: string, codeChallenge: string, method: string): boolean {
   if (method !== "S256") return false;
   const hash = createHash("sha256").update(codeVerifier).digest("base64url");
   return hash === codeChallenge;
+}
+
+function normalizeRedirectUris(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const out: string[] = [];
+  for (const value of input) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    // Reject anything that isn't an absolute http(s) URL — RFC 6749 § 3.1.2.
+    try {
+      const url = new URL(trimmed);
+      if (url.protocol !== "https:" && url.protocol !== "http:") continue;
+      out.push(trimmed);
+    } catch {
+      continue;
+    }
+  }
+  return out;
 }
 
 export interface McpOAuthDeps {
@@ -101,9 +109,10 @@ export interface McpOAuthDeps {
 
 export function mcpOAuthRoutes(opts: McpOAuthDeps) {
   const router = Router();
-  // Parse URL-encoded bodies (consent form) and JSON bodies (token endpoint)
-  router.use(express.urlencoded({ extended: false }));
-  router.use(express.json());
+  // Tight body-size limits — the OAuth router is reachable unauthenticated,
+  // and every endpoint here only ever sees small form/JSON payloads.
+  router.use(express.urlencoded({ extended: false, limit: OAUTH_BODY_LIMIT }));
+  router.use(express.json({ limit: OAUTH_BODY_LIMIT }));
   const issuer = opts.publicUrl.replace(/\/+$/, "");
 
   // ── Discovery endpoints ──
@@ -114,7 +123,7 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
       authorization_endpoint: `${issuer}/authorize`,
       token_endpoint: `${issuer}/oauth/token`,
       registration_endpoint: `${issuer}/oauth/register`,
-      token_endpoint_auth_methods_supported: ["client_secret_post"],
+      token_endpoint_auth_methods_supported: ["none"],
       grant_types_supported: ["authorization_code"],
       response_types_supported: ["code"],
       code_challenge_methods_supported: ["S256"],
@@ -131,22 +140,56 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
   });
 
   // ── Dynamic Client Registration (RFC 7591) ──
-  // claude.ai may auto-register before starting the auth flow.
-  // We accept any registration and echo back a client_id.
+  // claude.ai registers once, then reuses the returned client_id across
+  // authorization flows. We persist the client + its redirect_uris so we can
+  // enforce the allowlist at /authorize time.
 
-  router.post("/oauth/register", (req, res) => {
-    const clientName = req.body?.client_name ?? "mcp-client";
-    const redirectUris = req.body?.redirect_uris ?? [];
+  router.post("/oauth/register", async (req, res) => {
+    const clientName = typeof req.body?.client_name === "string" ? req.body.client_name : null;
+    const redirectUris = normalizeRedirectUris(req.body?.redirect_uris);
+
+    if (redirectUris.length === 0) {
+      res.status(400).json({
+        error: "invalid_redirect_uri",
+        error_description: "redirect_uris must contain at least one absolute http(s) URL",
+      });
+      return;
+    }
+
     const clientId = `mcp_${randomBytes(16).toString("hex")}`;
+    try {
+      await opts.db.insert(oauthClients).values({
+        clientId,
+        clientName,
+        redirectUris,
+        grantTypes: ["authorization_code"],
+        tokenEndpointAuthMethod: "none",
+      });
+    } catch (err) {
+      logger.error({ err }, "Failed to persist OAuth client registration");
+      res.status(500).json({ error: "server_error" });
+      return;
+    }
+
     res.status(201).json({
       client_id: clientId,
-      client_name: clientName,
+      client_name: clientName ?? "mcp-client",
       redirect_uris: redirectUris,
       grant_types: ["authorization_code"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
     });
   });
+
+  async function loadClient(clientId: string | undefined | null) {
+    if (!clientId) return null;
+    const rows = await opts.db
+      .select()
+      .from(oauthClients)
+      .where(eq(oauthClients.clientId, clientId))
+      .limit(1);
+    return rows[0] ?? null;
+  }
 
   // ── Authorization endpoint ──
 
@@ -160,15 +203,26 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
       state,
     } = req.query as Record<string, string | undefined>;
 
-    if (response_type !== "code" || !redirect_uri || !code_challenge) {
+    if (response_type !== "code" || !client_id || !redirect_uri || !code_challenge) {
       res.status(400).send("Invalid authorization request");
+      return;
+    }
+
+    const client = await loadClient(client_id);
+    if (!client) {
+      res.status(400).send("Unknown client_id — register at /oauth/register first");
+      return;
+    }
+    if (!client.redirectUris.includes(redirect_uri)) {
+      // Critical: do NOT redirect to redirect_uri here — that would defeat the
+      // allowlist check. RFC 6749 § 3.1.2.4 says respond with an HTTP 400.
+      res.status(400).send("redirect_uri is not registered for this client_id");
       return;
     }
 
     // Check if user is logged in via session cookie
     const session = await opts.resolveSession(req);
     if (!session) {
-      // Not logged in — redirect to Paperclip login, then back here
       const returnUrl = `${issuer}${req.originalUrl}`;
       res.redirect(`${issuer}/login?returnTo=${encodeURIComponent(returnUrl)}`);
       return;
@@ -176,6 +230,7 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
 
     // Render a minimal consent page
     const userName = session.userName ?? session.userId;
+    const displayName = client.clientName ?? client.clientId;
     res.setHeader("Content-Type", "text/html");
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -206,8 +261,8 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
   <div class="card">
     <h1>Authorize Claude</h1>
     <p>
-      Allow <strong>${escapeHtml(String(client_id ?? "Claude"))}</strong> to access
-      your Paperclip account as <span class="user">${escapeHtml(userName)}</span>?
+      Allow <strong>${escapeHtml(displayName)}</strong> to access your Paperclip
+      account as <span class="user">${escapeHtml(userName)}</span>?
     </p>
     <p>This will grant read and write access to your issues, agents, projects, and approvals.</p>
     <form method="POST" action="${issuer}/authorize">
@@ -232,14 +287,24 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
   // Handle consent form submission
   router.post("/authorize", async (req, res) => {
     const {
+      client_id,
       redirect_uri,
       code_challenge,
       code_challenge_method,
       state,
     } = req.body as Record<string, string | undefined>;
 
-    if (!redirect_uri || !code_challenge) {
+    if (!client_id || !redirect_uri || !code_challenge) {
       res.status(400).send("Invalid authorization request");
+      return;
+    }
+
+    // Re-validate client + redirect_uri on the consent submission. The form
+    // could have been tampered with between the GET and the POST (open form),
+    // and we never trust user-controlled input across a request boundary.
+    const client = await loadClient(client_id);
+    if (!client || !client.redirectUris.includes(redirect_uri)) {
+      res.status(400).send("Invalid client_id or redirect_uri");
       return;
     }
 
@@ -249,15 +314,23 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
       return;
     }
 
-    // Generate auth code and store it
     const code = generateAuthCode();
-    pendingCodes.set(code, {
-      userId: session.userId,
-      codeChallenge: code_challenge,
-      codeChallengeMethod: code_challenge_method ?? "S256",
-      redirectUri: redirect_uri,
-      expiresAt: Date.now() + AUTH_CODE_TTL_MS,
-    });
+    const codeHash = hashAuthCode(code);
+    try {
+      await opts.db.insert(oauthAuthCodes).values({
+        codeHash,
+        clientId: client.clientId,
+        userId: session.userId,
+        redirectUri: redirect_uri,
+        codeChallenge: code_challenge,
+        codeChallengeMethod: code_challenge_method ?? "S256",
+        expiresAt: new Date(Date.now() + AUTH_CODE_TTL_MS),
+      });
+    } catch (err) {
+      logger.error({ err }, "Failed to persist OAuth authorization code");
+      res.status(500).send("Failed to issue authorization code");
+      return;
+    }
 
     // Redirect back to claude.ai with the code
     const url = new URL(redirect_uri);
@@ -271,77 +344,87 @@ export function mcpOAuthRoutes(opts: McpOAuthDeps) {
   router.post("/oauth/token", async (req, res) => {
     const grantType = req.body?.grant_type;
 
-    if (grantType === "authorization_code") {
-      const code = req.body?.code as string | undefined;
-      const codeVerifier = req.body?.code_verifier as string | undefined;
-      const redirectUri = req.body?.redirect_uri as string | undefined;
-
-      if (!code || !codeVerifier) {
-        res.status(400).json({ error: "invalid_request", error_description: "code and code_verifier are required" });
-        return;
-      }
-
-      const pending = pendingCodes.get(code);
-      if (!pending || pending.expiresAt <= Date.now()) {
-        pendingCodes.delete(code!);
-        res.status(400).json({ error: "invalid_grant", error_description: "Authorization code is invalid or expired" });
-        return;
-      }
-
-      // One-time use
-      pendingCodes.delete(code);
-
-      // Validate redirect_uri matches
-      if (redirectUri && redirectUri !== pending.redirectUri) {
-        res.status(400).json({ error: "invalid_grant", error_description: "redirect_uri mismatch" });
-        return;
-      }
-
-      // Validate PKCE
-      if (!verifyPkce(codeVerifier, pending.codeChallenge, pending.codeChallengeMethod)) {
-        res.status(400).json({ error: "invalid_grant", error_description: "PKCE verification failed" });
-        return;
-      }
-
-      // Create a board API key for the user
-      try {
-        const token = createBoardApiToken();
-        const keyHash = hashBearerToken(token);
-        await opts.db.insert(boardApiKeys).values({
-          userId: pending.userId,
-          name: "claude-ai-connector",
-          keyHash,
-          expiresAt: boardApiKeyExpiresAt(),
-        });
-
-        res.json({
-          access_token: token,
-          token_type: "Bearer",
-          expires_in: 30 * 24 * 60 * 60, // 30 days (board key TTL)
-        });
-      } catch (err) {
-        logger.error({ err }, "Failed to create board API key during OAuth exchange");
-        res.status(500).json({ error: "server_error", error_description: "Failed to create access token" });
-      }
+    if (grantType !== "authorization_code") {
+      // Only authorization_code is supported. The previous client_credentials
+      // branch echoed the caller's client_secret straight back as an
+      // access_token and was effectively an open token endpoint — removed.
+      res.status(400).json({ error: "unsupported_grant_type" });
       return;
     }
 
-    // Fallback: client_credentials (for non-browser MCP clients)
-    if (grantType === "client_credentials") {
-      const clientSecret = req.body?.client_secret as string | undefined;
-      if (!clientSecret?.trim()) {
-        res.status(400).json({ error: "invalid_request", error_description: "client_secret is required" });
-        return;
-      }
-      res.json({
-        access_token: clientSecret.trim(),
-        token_type: "Bearer",
-        expires_in: 86400,
+    const code = typeof req.body?.code === "string" ? req.body.code : null;
+    const codeVerifier = typeof req.body?.code_verifier === "string" ? req.body.code_verifier : null;
+    const redirectUri = typeof req.body?.redirect_uri === "string" ? req.body.redirect_uri : null;
+    const clientId = typeof req.body?.client_id === "string" ? req.body.client_id : null;
+
+    if (!code || !codeVerifier) {
+      res.status(400).json({ error: "invalid_request", error_description: "code and code_verifier are required" });
+      return;
+    }
+
+    // Atomic single-use: claim the code by setting consumed_at in a single
+    // UPDATE that filters out already-consumed and expired rows. Two
+    // concurrent token requests with the same code race on this UPDATE; one
+    // wins and gets a row back, the other gets nothing.
+    const now = new Date();
+    const codeHash = hashAuthCode(code);
+    const claimed = await opts.db
+      .update(oauthAuthCodes)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(oauthAuthCodes.codeHash, codeHash),
+          isNull(oauthAuthCodes.consumedAt),
+          gt(oauthAuthCodes.expiresAt, now),
+        ),
+      )
+      .returning();
+
+    const pending = claimed[0];
+    if (!pending) {
+      res.status(400).json({ error: "invalid_grant", error_description: "Authorization code is invalid, expired, or already used" });
+      return;
+    }
+
+    if (clientId && clientId !== pending.clientId) {
+      res.status(400).json({ error: "invalid_grant", error_description: "client_id mismatch" });
+      return;
+    }
+    if (redirectUri && redirectUri !== pending.redirectUri) {
+      res.status(400).json({ error: "invalid_grant", error_description: "redirect_uri mismatch" });
+      return;
+    }
+    if (!verifyPkce(codeVerifier, pending.codeChallenge, pending.codeChallengeMethod)) {
+      res.status(400).json({ error: "invalid_grant", error_description: "PKCE verification failed" });
+      return;
+    }
+
+    try {
+      const token = createBoardApiToken();
+      const keyHash = hashBearerToken(token);
+      await opts.db.insert(boardApiKeys).values({
+        userId: pending.userId,
+        name: "claude-ai-connector",
+        keyHash,
+        expiresAt: boardApiKeyExpiresAt(),
       });
-      return;
-    }
 
-    res.status(400).json({ error: "unsupported_grant_type" });
+      // Best-effort cleanup of expired rows. Doing it here keeps the table
+      // bounded without a separate cron — the OAuth flow only fires when a
+      // user is actively authorizing a client, so the call rate is low.
+      await opts.db
+        .delete(oauthAuthCodes)
+        .where(lt(oauthAuthCodes.expiresAt, new Date(now.getTime() - 60 * 60 * 1000)));
+
+      res.json({
+        access_token: token,
+        token_type: "Bearer",
+        expires_in: 30 * 24 * 60 * 60, // 30 days (board key TTL)
+      });
+    } catch (err) {
+      logger.error({ err }, "Failed to create board API key during OAuth exchange");
+      res.status(500).json({ error: "server_error", error_description: "Failed to create access token" });
+    }
   });
 
   return router;
